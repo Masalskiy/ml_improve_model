@@ -1,23 +1,28 @@
 FROM golang:1.21-alpine
 
-WORKDIR /app
+WORKDIR /src/api
 
-# Создаем go.mod
-RUN go mod init api
+# Копируем файлы модуля
+COPY go.mod go.sum* ./
+
+# Загружаем зависимости
+RUN go mod download
 
 # Копируем исходный код
-COPY main.go .
+COPY . .
 
-# Добавляем зависимости
-RUN go get github.com/gorilla/mux
-RUN go get github.com/lib/pq
+# Проверяем модули и собираем приложение
+RUN go mod tidy && \
+    CGO_ENABLED=0 GOOS=linux go build -o /app/main .
 
-# Загружаем все зависимости
-RUN go mod tidy
+# Используем минимальный образ для запуска
+FROM alpine:latest
 
-# Сборка приложения
-RUN CGO_ENABLED=0 GOOS=linux go build -o main .
+WORKDIR /app
 
-# Запуск приложения
+# Копируем собранное приложение
+COPY --from=0 /app/main .
+
+# Запускаем приложение
 EXPOSE 8000
 CMD ["./main"] 
